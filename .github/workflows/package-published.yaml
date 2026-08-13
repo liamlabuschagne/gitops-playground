@@ -1,0 +1,84 @@
+name: Update Deployment Image
+
+on:
+  registry_package:
+    types: [published]
+
+# create a variable mapping between package names and folders
+env:
+  PACKAGE_TO_FOLDER_MAP: |
+    gitops-dummy-app: apps/dummy-app
+    nginx: apps/nginx
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    # Grant necessary permissions to read packages
+    permissions:
+      packages: read
+      contents: read
+    steps:
+      # Step 1: Retrieve the uploaded package
+      - name: Verify Package Source
+        run: |
+          echo "Package published: ${{ github.event.registry_package.name }}"
+          echo "Version: ${{ github.event.registry_package.package_version.version }}"
+          # Output the folder path based on the package name
+          FOLDER_PATH=$(echo "${{ env.PACKAGE_TO_FOLDER_MAP }}" | grep "^${{ github.event.registry_package.name }}:" | cut -d':' -f2)
+          if [ -z "$FOLDER_PATH" ]; then
+            echo "No folder mapping found for package: ${{ github.event.registry_package.name }}"
+            exit 1
+          fi
+          echo "FOLDER_PATH=$FOLDER_PATH" >> $GITHUB_ENV
+
+      # Step 2: Configure Git, apply changes, and push a new branch
+      - name: Make Changes and Push Branch
+        env:
+          FOLDER_PATH: ${{ env.FOLDER_PATH }}
+        run: |
+          cd target-repo
+          
+          # Setup Git bot profile
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Create and switch to a unique feature branch
+          BRANCH_NAME="sync-updates-${{ github.run_id }}"
+          git checkout -b "$BRANCH_NAME"
+          
+          # Update the deployment image in the corresponding folder
+          DEPLOYMENT_FILE="$FOLDER_PATH/deployment.yaml"
+          if [ -f "$DEPLOYMENT_FILE" ]; then
+            # Extract the new image from the published package event
+            NEW_IMAGE="ghcr.io/liamlabuschagne/${{ github.event.registry_package.name }}@sha256:${{ github.event.registry_package.package_version.digest }}"
+            echo "Updating deployment image to: $NEW_IMAGE"
+            
+            # Use yq to update the image in the deployment.yaml file
+            yq eval ".spec.template.spec.containers[0].image = \"$NEW_IMAGE\"" -i "$DEPLOYMENT_FILE"
+          else
+            echo "Deployment file not found at: $DEPLOYMENT_FILE"
+            exit 1
+          fi
+          
+          # Commit and push to the remote target repository
+          git add .
+          git commit -m "chore: automated sync from source repo"
+          git push origin "$BRANCH_NAME"
+          
+          # Expose the branch name to the next step
+          echo "NEW_BRANCH=$BRANCH_NAME" >> $GITHUB_ENV
+
+      # Step 3: Open the PR using the pre-installed GitHub CLI
+      - name: Create Pull Request via GitHub CLI
+        run: |
+          cd target-repo
+          
+          # Authenticate the GitHub CLI using your secret PAT
+          echo "${{ secrets.TARGET_REPO_PAT }}" | gh auth login --with-token
+          
+          # Create the Pull Request
+          gh pr create \
+            --title "chore(${{ github.event.registry_package.name }}): automated sync" \
+            --body "This PR was generated automatically by a GitHub Actions workflow." \
+            --head "$NEW_BRANCH" \
+            --base main
