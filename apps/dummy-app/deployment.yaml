@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: dummy-app
-        image: ghcr.io/liamlabuschagne/gitops-dummy-app:sha256-8e9690de5463828dd01cbbd9776bde8d9acdd5a97e0ebce46418c3c16a13cf5a
+        image: ghcr.io/liamlabuschagne/gitops-dummy-app@sha256:8e9690de5463828dd01cbbd9776bde8d9acdd5a97e0ebce46418c3c16a13cf5a
         ports:
         - containerPort: 80
         resources:
