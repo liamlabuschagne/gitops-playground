@@ -1,17 +1,17 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: dummpy-app
+  name: dummy-app
   namespace: argocd
 spec:
   project: default
   source:
     repoURL: https://github.com/liamlabuschagne/gitops-playground
     targetRevision: HEAD
-    path: apps/dummpy-app
+    path: apps/dummy-app
   destination:
     server: https://kubernetes.default.svc
-    namespace: dummpy-app
+    namespace: dummy-app
   syncPolicy:
     automated:
       prune: true
