@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: guestbook
+  namespace: argocd
+  spec:
+    project: default
+    source:
+      repoURL: https://github.com/liamlabuschagne/gitops-playground
+      targetRevision: HEAD
+      path: apps/nginx
+    destination:
+      server: https://kubernetes.default.svc
+      namespace: nginx
+    syncPolicy:
+      automated:
+        prune: true
+        selfHeal: true
+      syncOptions:
+        - CreateNamespace=true
