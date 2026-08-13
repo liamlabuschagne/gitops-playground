@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dummy-app-deployment
+  labels:
+    app: dummy-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: dummy-app
+  template:
+    metadata:
+      labels:
+        app: dummy-app
+    spec:
+      containers:
+      - name: dummy-app
+        image: ghcr.io/liamlabuschagne/gitops-dummy-app:sha256-8e9690de5463828dd01cbbd9776bde8d9acdd5a97e0ebce46418c3c16a13cf5a
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
