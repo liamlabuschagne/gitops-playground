@@ -11,15 +11,14 @@ env:
     nginx: apps/nginx
 
 jobs:
-  create-pr:
+  create-commit:
     runs-on: ubuntu-latest
     # Grant necessary permissions to read packages
     permissions:
       packages: read
       contents: write
     steps:
-      # Step 1: Retrieve the uploaded package
-      - name: Verify Package Source
+      - name: Verify package source
         run: |
           echo "Package published: ${{ github.event.registry_package.name }}"
           echo "Version: ${{ github.event.registry_package.package_version.version }}"
@@ -31,17 +30,18 @@ jobs:
           fi
           echo "FOLDER_PATH=$FOLDER_PATH" >> $GITHUB_ENV
 
-      # Step 2: Commit a change to the deployment.yaml with the new image
-      - name: Make Changes and Push Branch
-        env:
-          FOLDER_PATH: ${{ env.FOLDER_PATH }}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Setup git bot config
         run: |
-          cd target-repo
-          
-          # Setup Git bot profile
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
+
+      - name: Update deployment image
+        env:
+          FOLDER_PATH: ${{ env.FOLDER_PATH }}
+        working-directory: gitops-playground
+        run: |
           # Update the deployment image in the corresponding folder
           DEPLOYMENT_FILE="$FOLDER_PATH/deployment.yaml"
           if [ -f "$DEPLOYMENT_FILE" ]; then
@@ -55,8 +55,10 @@ jobs:
             echo "Deployment file not found at: $DEPLOYMENT_FILE"
             exit 1
           fi
-          
-          # Commit and push
+
+      - name: Commit and push
+        working-directory: gitops-playground
+        run: |
           git add .
           git commit -m "chore: update ${{ github.event.registry_package.name }} deployment image"
           git push
